@@ -48,23 +48,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	go func() {
-
-		messagesReceipts, err := receiptsSub.Subscribe(context.Background(), "issue-receipt")
-		if err != nil {
-			panic(err)
-		}
-
-		for msg := range messagesReceipts {
+	router, err := message.NewRouter(message.RouterConfig{}, logger)
+	router.AddNoPublisherHandler("receipt-issuer", "issue-receipt", receiptsSub,
+		func(msg *message.Message) error {
 			err := receiptsClient.IssueReceipt(msg.Context(), string(msg.Payload))
-			if err != nil {
-				msg.Nack()
-			} else {
-				msg.Ack()
-			}
-		}
-	}()
+			return err
+		})
 	spreadsheetSub, err := redisstream.NewSubscriber(redisstream.SubscriberConfig{
 		Client:        rdb,
 		ConsumerGroup: "append-to-tracker",
@@ -72,22 +61,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	go func() {
-
-		messagesSpreadSheet, err := spreadsheetSub.Subscribe(context.Background(), "append-to-tracker")
-		if err != nil {
-			panic(err)
-		}
-
-		for msg := range messagesSpreadSheet {
+	router.AddNoPublisherHandler("tracker-appender", "append-to-tracker", spreadsheetSub,
+		func(msg *message.Message) error {
 			err := spreadsheetsClient.AppendRow(msg.Context(), "tickets-to-print", []string{string(msg.Payload)})
-			if err != nil {
-				msg.Nack()
-			} else {
-				msg.Ack()
-			}
-		}
+			return err
+		})
+	go func() {
+		_ = router.Run(context.Background())
 	}()
 
 	publisher, err := redisstream.NewPublisher(redisstream.PublisherConfig{
