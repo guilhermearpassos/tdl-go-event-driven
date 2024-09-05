@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
+	"strconv"
 	"testing"
 	"tickets/adapters"
 	"tickets/adapters/mock_services"
@@ -34,7 +36,11 @@ func TestMain(m *testing.M) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	logger := watermill.NewStdLogger(false, false)
-	dbInst, err := sqlx.Open("postgres", os.Getenv("POSTGRES_URL"))
+	pgURL := os.Getenv("POSTGRES_URL")
+	if pgURL == "" {
+		pgURL = "postgres://user:password@localhost/postgres?sslmode=disable"
+	}
+	dbInst, err := sqlx.Open("postgres", pgURL)
 	if err != nil {
 		panic(err)
 	}
@@ -97,6 +103,28 @@ func TestMain(m *testing.M) {
 	//_ = router.ShutDown()
 }
 
+func postTicketStatus(ctx context.Context, t domain.TicketStatus) error {
+	payload, err := json.Marshal(domain.TicketsStatusRequest{Tickets: []domain.TicketStatus{t}})
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", "http://localhost:8080/tickets-status", bytes.NewBuffer(payload))
+	if err != nil {
+		return fmt.Errorf("marshal payloadcreate request: %w", err)
+	}
+	req.Header.Set("Idempotency-Key", uuid.New().String())
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("post ticket status: %w", err)
+	}
+	if strconv.Itoa(resp.StatusCode)[0] != '2' {
+		return fmt.Errorf("post ticket status: expected '2xx', got '%d'", resp.StatusCode)
+	}
+	return nil
+}
+
 func TestComponent(t *testing.T) {
 	// place for your tests!
 	waitForHttpServer(t)
@@ -110,19 +138,13 @@ func TestComponent(t *testing.T) {
 		},
 		CustomerEmail: "123q@abc.com",
 	}
-	payload, err := json.Marshal(domain.TicketsStatusRequest{Tickets: []domain.TicketStatus{st}})
-	require.NoError(t, err)
-	_, err = http.Post("http://localhost:8080/tickets-status", "application/json", bytes.NewBuffer(payload))
+	err := postTicketStatus(context.Background(), st)
 	require.NoError(t, err)
 	st.Status = "confirmed"
-	payload, err = json.Marshal(domain.TicketsStatusRequest{Tickets: []domain.TicketStatus{st}})
-	require.NoError(t, err)
-	_, err = http.Post("http://localhost:8080/tickets-status", "application/json", bytes.NewBuffer(payload))
+	err = postTicketStatus(context.Background(), st)
 	require.NoError(t, err)
 	st.Status = "canceled"
-	payload, err = json.Marshal(domain.TicketsStatusRequest{Tickets: []domain.TicketStatus{st}})
-	require.NoError(t, err)
-	_, err = http.Post("http://localhost:8080/tickets-status", "application/json", bytes.NewBuffer(payload))
+	err = postTicketStatus(context.Background(), st)
 	require.NoError(t, err)
 	time.Sleep(400 * time.Millisecond)
 	_, receiptIssued := receiptsClient.IssuedReceipts[ticketID]

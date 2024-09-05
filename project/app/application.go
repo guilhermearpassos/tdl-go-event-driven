@@ -21,6 +21,8 @@ type Commands struct {
 	CreateTicket command.CreateTicketHandler
 	CancelTicket command.CancelTicketHandler
 	PrintTicket  command.PrintTicketHandler
+	CreateShow   command.CreateShowHandler
+	BookTickets  command.BookTicketsHandler
 }
 
 func NewApplication(receiptsClient domain.ReceiptIssuer, spreadsheetsClient domain.Tracker,
@@ -36,6 +38,8 @@ func NewApplication(receiptsClient domain.ReceiptIssuer, spreadsheetsClient doma
 			CreateTicket: command.NewCreateTicketHandler(repo),
 			CancelTicket: command.NewCancelTicketHandler(repo),
 			PrintTicket:  command.NewPrintTicketHandler(printer, eventBus),
+			CreateShow:   command.NewCreateShowHandler(repo),
+			BookTickets:  command.NewBookTicketsHandler(repo),
 		},
 	}
 	return application

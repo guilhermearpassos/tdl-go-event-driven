@@ -10,7 +10,7 @@ type MockPrinterClient struct {
 }
 
 func NewMockPrinterClient() MockPrinterClient {
-	return MockPrinterClient{}
+	return MockPrinterClient{printedFiles: make(map[string]string)}
 }
 
 var _ domain.Printer = (*MockPrinterClient)(nil)

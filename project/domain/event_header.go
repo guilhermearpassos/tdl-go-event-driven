@@ -6,14 +6,19 @@ import (
 )
 
 type EventHeader struct {
-	ID          string    `json:"id"`
-	PublishedAt time.Time `json:"published_at"`
+	ID             string    `json:"id"`
+	PublishedAt    time.Time `json:"published_at"`
+	IdempotencyKey string    `json:"idempotency_key"`
 }
 
-func NewHeader() EventHeader {
+func NewHeader(idempotencyKey string) EventHeader {
+	if idempotencyKey == "" {
+		idempotencyKey = uuid.NewString()
+	}
 	return EventHeader{
-		ID:          uuid.NewString(),
-		PublishedAt: time.Now().UTC(),
+		ID:             uuid.NewString(),
+		PublishedAt:    time.Now().UTC(),
+		IdempotencyKey: idempotencyKey,
 	}
 }
 

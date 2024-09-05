@@ -20,12 +20,14 @@ func NewReceiptsClient(clients *clients.Clients) ReceiptsClient {
 }
 
 func (c ReceiptsClient) IssueReceipt(ctx context.Context, request domain.IssueReceiptRequest) error {
+	idempot := request.IdempotencyKey + request.TicketID
 	body := receipts.PutReceiptsJSONRequestBody{
 		TicketId: request.TicketID,
 		Price: receipts.Money{
 			MoneyAmount:   request.Price.Amount,
 			MoneyCurrency: request.Price.Currency,
 		},
+		IdempotencyKey: &idempot,
 	}
 
 	receiptsResp, err := c.clients.Receipts.PutReceiptsWithResponse(ctx, body)

@@ -66,3 +66,21 @@ func (p PGTicketRepository) GetTickets(ctx context.Context) ([]domain.TicketStat
 	}
 	return tickets, nil
 }
+
+func (p PGTicketRepository) CreateShow(ctx context.Context, show domain.Show) error {
+	_, err := p.db.ExecContext(ctx, `INSERT INTO shows (show_id, external_id, start_time, title, venue) values ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+		show.Id, show.ExternalID, show.StartTime, show.Title, show.Venue)
+	if err != nil {
+		return fmt.Errorf("creating show %s: %w", show.Id, err)
+	}
+	return nil
+}
+
+func (p PGTicketRepository) CreateBooking(ctx context.Context, showId string, bookingId string, customerEmail string, numberOfTickets int) error {
+	_, err := p.db.ExecContext(ctx, `INSERT INTO bookings (booking_id, customer_email, show_id, number_of_tickets) values ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+		bookingId, customerEmail, showId, numberOfTickets)
+	if err != nil {
+		return fmt.Errorf("creating booking (%s %s %s %d): %w", bookingId, customerEmail, showId, numberOfTickets, err)
+	}
+	return nil
+}

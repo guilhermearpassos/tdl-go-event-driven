@@ -74,8 +74,9 @@ func (r *Router) StartConsumers(ctx context.Context) error {
 			event.Price.Currency = "USD"
 		}
 		request := domain.IssueReceiptRequest{
-			TicketID: event.TicketID,
-			Price:    event.Price,
+			TicketID:       event.TicketID,
+			Price:          event.Price,
+			IdempotencyKey: event.Header.IdempotencyKey,
 		}
 		err = r.app.Commands.IssueReceipt.Handle(ctx, request)
 		return err
